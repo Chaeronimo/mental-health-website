@@ -88,3 +88,23 @@ footer {
   font-size: 0.9rem;
   margin-top: 0.7rem;
 }
+
+.contact-section {
+  padding: 2rem;
+  background: #fff;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+label {
+  display: block;
+  margin-top: 1rem;
+}
+
+input, textarea {
+  width: 100%;
+  padding: 0.7rem;
+  margin-top: 0.3rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
