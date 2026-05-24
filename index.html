@@ -1,67 +1,568 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Youth Mental Health</title>
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-  <header class="site-header">
-    <h1>Youth Mental Health Protection</h1>
-    <nav>
-      <a href="#about">About</a>
-      <a href="#resources">Resources</a>
-      <a href="#contact">Contact</a>
-    </nav>
-  </header>
-  
+import { useState, useEffect } from "react";
 
-  <section class="hero">
-    <h2>Support & Resources for Young Minds</h2>
-    <p>You’re not alone — help is here.</p>
-    <a class="btn" href="#resources">Find Help</a>
-  </section>
+const MOODS = [
+  { emoji: "😄", label: "Great", color: "#a8d5a2", value: 5 },
+  { emoji: "🙂", label: "Good", color: "#b8d4e8", value: 4 },
+  { emoji: "😐", label: "Okay", color: "#d4c5e2", value: 3 },
+  { emoji: "😔", label: "Low", color: "#f0c9a0", value: 2 },
+  { emoji: "😢", label: "Hard", color: "#e8a0a0", value: 1 },
+];
 
-  <section id="resources" class="resources-section">
-  <h2>Helpful Resources</h2>
-  <div class="cards">
-    <div class="card">
-      <h3>24/7 Crisis Line</h3>
-      <p>Call 988 for immediate support.</p>
-      <a href="tel:988" class="btn-small">Call Now</a>
+const PROMPTS = [
+  "What's one small thing that made you smile today?",
+  "Who is someone you're grateful for, and why?",
+  "What's a challenge you faced recently that taught you something?",
+  "Describe a moment today when you felt at peace.",
+  "What's something about yourself you appreciate?",
+  "What's a simple pleasure you enjoyed today?",
+  "What's one thing you're looking forward to tomorrow?",
+  "Who did something kind for you recently?",
+  "What's something beautiful you noticed today?",
+  "What made you laugh or smile this week?",
+];
+
+const AFFIRMATIONS = [
+  "You are enough, exactly as you are. 🌿",
+  "Small steps still move you forward. 🌱",
+  "Your feelings are valid and worthy of care. 💙",
+  "You have the strength to get through this day. ✨",
+  "You matter more than you know. 🌸",
+  "Be gentle with yourself today. 🍃",
+  "Growth happens one moment at a time. 🌼",
+];
+
+const RESOURCES = [
+  {
+    name: "988 Suicide & Crisis Lifeline",
+    desc: "Free, confidential support 24/7 for anyone in distress.",
+    call: "988",
+    text: "Text 988",
+    tag: "Crisis & Suicide",
+    color: "#e8f4e8",
+    border: "#b8d8b8",
+    icon: "🆘",
+  },
+  {
+    name: "Crisis Text Line",
+    desc: "Text-based crisis support available 24/7 nationwide.",
+    text: "Text HOME to 741741",
+    tag: "Crisis & Text",
+    color: "#e8f0fa",
+    border: "#b8cef0",
+    icon: "💬",
+  },
+  {
+    name: "Teen Line",
+    desc: "Teens talking to teens. Trained volunteer listeners, ages up to 19.",
+    call: "1-800-852-8336",
+    text: "Text TEEN to 839863",
+    tag: "Teen Support",
+    color: "#f4ecf9",
+    border: "#d9bef0",
+    icon: "🧑‍🤝‍🧑",
+  },
+  {
+    name: "YouthLine",
+    desc: "Peer support from trained teen volunteers and adult counselors.",
+    call: "877-968-8491",
+    text: "Text 839863",
+    tag: "Teen Peer Support",
+    color: "#fdf4e3",
+    border: "#f5d9a0",
+    icon: "🌻",
+  },
+  {
+    name: "Boys Town National Hotline",
+    desc: "24/7 support for teens & families — depression, bullying, school issues.",
+    call: "800-448-3000",
+    text: "Text VOICE to 20121",
+    tag: "Family & Teens",
+    color: "#fdecea",
+    border: "#f0b8b8",
+    icon: "📞",
+  },
+  {
+    name: "The Trevor Project",
+    desc: "Crisis intervention & suicide prevention for LGBTQ+ youth, 24/7.",
+    call: "1-866-488-7386",
+    text: "Text START to 678678",
+    tag: "LGBTQ+ Youth",
+    color: "#fff0e6",
+    border: "#ffc8a0",
+    icon: "🏳️‍🌈",
+  },
+  {
+    name: "National Domestic Violence Hotline",
+    desc: "Support for any type of domestic or dating abuse, 24/7.",
+    call: "800-799-7233",
+    text: "Text START to 88788",
+    tag: "Safety",
+    color: "#fff4e8",
+    border: "#f0d0a0",
+    icon: "🛡️",
+  },
+];
+
+const DAYS = ["Su","Mo","Tu","We","Th","Fr","Sa"];
+const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+function getTodayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+function getDayKey(y,m,d) { return `${y}-${m}-${d}`; }
+function getMoodByValue(v) { return MOODS.find(m => m.value === v); }
+
+export default function App() {
+  const [page, setPage] = useState("setup");
+  const [username, setUsername] = useState(() => localStorage.getItem("gj_username") || "");
+  const [usernameInput, setUsernameInput] = useState("");
+  const [entries, setEntries] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("gj_entries") || "[]"); } catch { return []; }
+  });
+  const [streak, setStreak] = useState(0);
+  const [todayMood, setTodayMood] = useState(null);
+  const [writing, setWriting] = useState("");
+  const [shareMode, setShareMode] = useState("private"); // "private" | "anonymous" | "named"
+  const [selectedMood, setSelectedMood] = useState(null);
+  const [submitted, setSubmitted] = useState(false);
+  const [calMonth, setCalMonth] = useState(new Date().getMonth());
+  const [calYear, setCalYear] = useState(new Date().getFullYear());
+  const [viewEntry, setViewEntry] = useState(null);
+
+  const todayKey = getTodayKey();
+  const affirmation = AFFIRMATIONS[new Date().getDay() % AFFIRMATIONS.length];
+  const prompt = PROMPTS[new Date().getDate() % PROMPTS.length];
+
+  useEffect(() => {
+    if (username) setPage("home");
+  }, []);
+
+  useEffect(() => {
+    try { localStorage.setItem("gj_entries", JSON.stringify(entries)); } catch {}
+    const todayEntry = entries.find(e => e.dateKey === todayKey);
+    if (todayEntry) { setTodayMood(getMoodByValue(todayEntry.moodValue)); setSubmitted(true); }
+    let s = 0, d = new Date();
+    while (true) {
+      const k = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      if (entries.find(e => e.dateKey === k)) { s++; d.setDate(d.getDate()-1); } else break;
+    }
+    setStreak(s);
+  }, [entries]);
+
+  function saveUsername() {
+    const name = usernameInput.trim();
+    if (!name) return;
+    setUsername(name);
+    localStorage.setItem("gj_username", name);
+    setPage("home");
+  }
+
+  function submitEntry() {
+    if (!selectedMood || !writing.trim()) return;
+    const now = new Date();
+    const newEntry = {
+      id: Date.now(),
+      dateKey: todayKey,
+      date: now.toLocaleDateString("en-US", { month:"long", day:"numeric", year:"numeric" }),
+      prompt, text: writing,
+      moodValue: selectedMood.value,
+      moodEmoji: selectedMood.emoji,
+      moodLabel: selectedMood.label,
+      moodColor: selectedMood.color,
+      shareMode,
+      displayName: shareMode === "named" ? username : shareMode === "anonymous" ? "Anonymous" : null,
+    };
+    setEntries(prev => [newEntry, ...prev.filter(e => e.dateKey !== todayKey)]);
+    setSubmitted(true); setTodayMood(selectedMood); setPage("home");
+  }
+
+  function getCalendarData() {
+    const first = new Date(calYear, calMonth, 1);
+    const last = new Date(calYear, calMonth+1, 0);
+    const cells = [];
+    for (let i = 0; i < first.getDay(); i++) cells.push(null);
+    for (let d = 1; d <= last.getDate(); d++) {
+      const key = getDayKey(calYear, calMonth, d);
+      cells.push({ day: d, entry: entries.find(e => e.dateKey === key) });
+    }
+    return cells;
+  }
+
+  const sharedEntries = entries.filter(e => e.shareMode === "anonymous" || e.shareMode === "named");
+
+  // ── SETUP ──
+  if (page === "setup") return (
+    <div style={s.page}>
+      <div style={{textAlign:"center",padding:"40px 0 20px"}}>
+        <p style={{fontSize:48,margin:0}}>🌿</p>
+        <h1 style={{...s.appTitle,textAlign:"center",fontSize:32,margin:"12px 0 6px"}}>Welcome to Bloom</h1>
+        <p style={{color:"#aaa",fontSize:14,margin:0}}>your daily gratitude journal</p>
+      </div>
+      <div style={s.card}>
+        <p style={{fontSize:15,color:"#555",marginBottom:16,lineHeight:1.6}}>
+          Before we start, what should we call you?
+        </p>
+        <input
+          value={usernameInput}
+          onChange={e => setUsernameInput(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && saveUsername()}
+          placeholder="Your name or nickname..."
+          style={s.input}
+          maxLength={30}
+        />
+        <p style={{fontSize:12,color:"#bbb",margin:"8px 0 16px",lineHeight:1.5}}>
+          This will be shown on the community feed only when you choose to share with your name. You can always share anonymously.
+        </p>
+        <button onClick={saveUsername} disabled={!usernameInput.trim()} style={{...s.primaryBtn, opacity: usernameInput.trim() ? 1 : 0.4}}>
+          Let's begin 🌱
+        </button>
+      </div>
     </div>
-    <div class="card">
-      <h3>Teen Mental Health Tips</h3>
-      <p>Check coping strategies for stress & anxiety.</p>
-      <a href="#articles" class="btn-small">Learn More</a>
+  );
+
+  // ── WRITE ──
+  if (page === "write") return (
+    <div style={s.page}>
+      <button onClick={() => setPage("home")} style={s.back}>← Back</button>
+      <h2 style={s.sectionTitle}>Today's entry</h2>
+      <div style={s.promptBox}>
+        <p style={s.promptLabel}>Prompt</p>
+        <p style={{margin:0,fontSize:15,color:"#7a5fa0",lineHeight:1.6,fontStyle:"italic"}}>"{prompt}"</p>
+      </div>
+      <p style={s.label}>How are you feeling?</p>
+      <div style={s.moodRow}>
+        {MOODS.map(m => (
+          <button key={m.value} onClick={() => setSelectedMood(m)}
+            style={{...s.moodBtn,
+              background: selectedMood?.value===m.value ? m.color : "transparent",
+              border: selectedMood?.value===m.value ? `2px solid ${m.color}` : "1.5px solid #e0ddd6"}}>
+            <span style={{fontSize:26}}>{m.emoji}</span>
+            <span style={{fontSize:11,color:"#888",marginTop:2}}>{m.label}</span>
+          </button>
+        ))}
+      </div>
+      <p style={s.label}>Your gratitude</p>
+      <textarea value={writing} onChange={e => setWriting(e.target.value)}
+        placeholder="Write freely... this is your space."
+        style={s.textarea} rows={6} />
+
+      <p style={{...s.label,marginTop:16}}>Who can see this?</p>
+      <div style={s.shareOptions}>
+        {[
+          { value:"private", icon:"🔒", title:"Private", sub:"Only visible to you" },
+          { value:"anonymous", icon:"🌫️", title:"Anonymous", sub:"Shared without your name" },
+          { value:"named", icon:"🌍", title:`As ${username}`, sub:"Shared with your name" },
+        ].map(opt => (
+          <button key={opt.value} onClick={() => setShareMode(opt.value)}
+            style={{...s.shareBtn, border: shareMode===opt.value ? "2px solid #4a7c59" : "1.5px solid #e0ddd6",
+              background: shareMode===opt.value ? "#f0f8f0" : "#fafaf8"}}>
+            <span style={{fontSize:20}}>{opt.icon}</span>
+            <div style={{textAlign:"left"}}>
+              <p style={{margin:0,fontSize:13,fontWeight:500,color:"#444"}}>{opt.title}</p>
+              <p style={{margin:0,fontSize:11,color:"#aaa"}}>{opt.sub}</p>
+            </div>
+            {shareMode===opt.value && <span style={{marginLeft:"auto",color:"#4a7c59",fontWeight:600}}>✓</span>}
+          </button>
+        ))}
+      </div>
+
+      <button onClick={submitEntry} disabled={!selectedMood || !writing.trim()}
+        style={{...s.primaryBtn, marginTop:20, opacity:(!selectedMood||!writing.trim()) ? 0.4 : 1}}>
+        Save entry
+      </button>
     </div>
-    <div class="card">
-      <h3>Local Support Groups</h3>
-      <p>Find meetups near you.</p>
-      <a href="#contact" class="btn-small">Contact Us</a>
+  );
+
+  // ── ENTRIES ──
+  if (page === "entries") return (
+    <div style={s.page}>
+      <button onClick={() => { setPage("home"); setViewEntry(null); }} style={s.back}>← Back</button>
+      {viewEntry ? (
+        <div>
+          <button onClick={() => setViewEntry(null)} style={{...s.back,marginBottom:12}}>← All entries</button>
+          <div style={s.card}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+              <span style={{fontSize:28}}>{viewEntry.moodEmoji}</span>
+              <div style={{flex:1}}>
+                <p style={{margin:0,fontWeight:500,fontSize:15}}>{viewEntry.date}</p>
+                <p style={{margin:0,fontSize:13,color:"#999"}}>{viewEntry.moodLabel}</p>
+              </div>
+              <span style={{...s.badge,
+                background: viewEntry.shareMode==="private"?"#f5f5f5":viewEntry.shareMode==="anonymous"?"#eef4ff":"#eefaee",
+                color: viewEntry.shareMode==="private"?"#999":viewEntry.shareMode==="anonymous"?"#4a6fa0":"#4a7c59",
+                border: `1px solid ${viewEntry.shareMode==="private"?"#e0e0e0":viewEntry.shareMode==="anonymous"?"#b8cef0":"#b8d8b8"}`}}>
+                {viewEntry.shareMode==="private"?"🔒 Private":viewEntry.shareMode==="anonymous"?"🌫️ Anonymous":`🌍 As ${username}`}
+              </span>
+            </div>
+            <p style={{fontSize:13,color:"#aaa",marginBottom:4}}>Prompt</p>
+            <p style={{fontSize:14,color:"#888",fontStyle:"italic",marginBottom:12}}>"{viewEntry.prompt}"</p>
+            <p style={{fontSize:15,lineHeight:1.7,color:"#555"}}>{viewEntry.text}</p>
+          </div>
+        </div>
+      ) : (
+        <>
+          <h2 style={s.sectionTitle}>My entries</h2>
+          {entries.length === 0
+            ? <p style={{color:"#ccc",textAlign:"center",marginTop:40}}>No entries yet. Start your first one!</p>
+            : entries.map(e => (
+              <button key={e.id} onClick={() => setViewEntry(e)} style={s.entryRow}>
+                <span style={{fontSize:22}}>{e.moodEmoji}</span>
+                <div style={{flex:1,textAlign:"left"}}>
+                  <p style={{margin:0,fontSize:14,fontWeight:500}}>{e.date}</p>
+                  <p style={{margin:0,fontSize:12,color:"#bbb",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:200}}>{e.text}</p>
+                </div>
+                <span style={{...s.badge,
+                  background: e.shareMode==="private"?"#f5f5f5":e.shareMode==="anonymous"?"#eef4ff":"#eefaee",
+                  color: e.shareMode==="private"?"#bbb":e.shareMode==="anonymous"?"#4a6fa0":"#4a7c59",
+                  border:`1px solid ${e.shareMode==="private"?"#e8e8e8":e.shareMode==="anonymous"?"#b8cef0":"#b8d8b8"}`}}>
+                  {e.shareMode==="private"?"🔒":e.shareMode==="anonymous"?"🌫️":"🌍"}
+                </span>
+                <span style={{color:"#ddd",fontSize:18}}>›</span>
+              </button>
+            ))
+          }
+        </>
+      )}
     </div>
-  </div>
-</section>
+  );
 
-  <footer>
-    <p>© 2026 Youth Mental Health Project</p>
-  </footer>
-  <section id="contact" class="contact-section">
-  <h2>Contact Us</h2>
-  <form>
-    <label for="name">Your Name</label>
-    <input type="text" id="name" required>
+  // ── CALENDAR ──
+  if (page === "calendar") {
+    const cells = getCalendarData();
+    return (
+      <div style={s.page}>
+        <button onClick={() => setPage("home")} style={s.back}>← Back</button>
+        <h2 style={s.sectionTitle}>Mood calendar</h2>
+        <div style={s.calNav}>
+          <button style={s.calNavBtn} onClick={() => { let m=calMonth-1,y=calYear; if(m<0){m=11;y--;} setCalMonth(m);setCalYear(y); }}>‹</button>
+          <span style={{fontWeight:500,fontSize:15}}>{MONTHS[calMonth]} {calYear}</span>
+          <button style={s.calNavBtn} onClick={() => { let m=calMonth+1,y=calYear; if(m>11){m=0;y++;} setCalMonth(m);setCalYear(y); }}>›</button>
+        </div>
+        <div style={s.calGrid}>
+          {DAYS.map(d => <div key={d} style={s.calHeader}>{d}</div>)}
+          {cells.map((cell,i) => (
+            <div key={i} style={{...s.calCell,
+              background: cell?.entry ? cell.entry.moodColor : "transparent",
+              border: cell?.entry ? `1.5px solid ${cell.entry.moodColor}` : "1.5px solid #f0ede6",
+              opacity: cell ? 1 : 0}}>
+              {cell && <>
+                <span style={{fontSize:10,color:cell.entry?"#555":"#ccc",fontWeight:500}}>{cell.day}</span>
+                {cell.entry && <span style={{fontSize:14}}>{cell.entry.moodEmoji}</span>}
+              </>}
+            </div>
+          ))}
+        </div>
+        <div style={{marginTop:16,display:"flex",gap:8,flexWrap:"wrap"}}>
+          {MOODS.map(m => (
+            <div key={m.value} style={{display:"flex",alignItems:"center",gap:5,background:m.color,padding:"4px 10px",borderRadius:20}}>
+              <span style={{fontSize:13}}>{m.emoji}</span>
+              <span style={{fontSize:11,color:"#555"}}>{m.label}</span>
+            </div>
+          ))}
+        </div>
+        {entries.length >= 2 && (
+          <div style={{marginTop:24}}>
+            <p style={{fontSize:13,color:"#aaa",marginBottom:8}}>Mood trend (last 14 entries)</p>
+            <MoodChart entries={entries} />
+          </div>
+        )}
+      </div>
+    );
+  }
 
-    <label for="email">Email</label>
-    <input type="email" id="email" required>
+  // ── COMMUNITY ──
+  if (page === "community") return (
+    <div style={s.page}>
+      <button onClick={() => setPage("home")} style={s.back}>← Back</button>
+      <h2 style={s.sectionTitle}>Community gratitude</h2>
+      <p style={{fontSize:13,color:"#aaa",marginBottom:20}}>A gentle space of shared reflections. 💙</p>
+      {sharedEntries.length === 0
+        ? <div style={{textAlign:"center",padding:"40px 0",color:"#ccc"}}>
+            <p style={{fontSize:36}}>🌱</p>
+            <p>No shared entries yet. Be the first!</p>
+          </div>
+        : sharedEntries.map(e => (
+          <div key={e.id} style={s.communityCard}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+              <span style={{fontSize:20}}>{e.moodEmoji}</span>
+              <div>
+                <p style={{margin:0,fontSize:13,fontWeight:500,color:"#555"}}>{e.displayName}</p>
+                <p style={{margin:0,fontSize:11,color:"#bbb"}}>{e.date}</p>
+              </div>
+            </div>
+            <p style={{fontSize:13,color:"#aaa",fontStyle:"italic",marginBottom:6}}>"{e.prompt}"</p>
+            <p style={{fontSize:15,lineHeight:1.7,color:"#555",margin:0}}>{e.text}</p>
+          </div>
+        ))
+      }
+    </div>
+  );
 
-    <label for="message">Message</label>
-    <textarea id="message" rows="5" required></textarea>
+  // ── RESOURCES ──
+  if (page === "resources") return (
+    <div style={s.page}>
+      <button onClick={() => setPage("home")} style={s.back}>← Back</button>
+      <h2 style={s.sectionTitle}>Mental health support</h2>
+      <div style={{background:"#fff4e6",border:"1.5px solid #f5d9a0",borderRadius:12,padding:"12px 14px",marginBottom:20}}>
+        <p style={{margin:0,fontSize:13,color:"#9a6800",lineHeight:1.6}}>
+          <strong>If you're in immediate danger</strong>, please call <strong>911</strong> or go to your nearest emergency room. These resources are free and confidential.
+        </p>
+      </div>
+      {RESOURCES.map((r,i) => (
+        <div key={i} style={{background:r.color,border:`1.5px solid ${r.border}`,borderRadius:14,padding:"14px 16px",marginBottom:12}}>
+          <div style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:8}}>
+            <span style={{fontSize:22}}>{r.icon}</span>
+            <div style={{flex:1}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
+                <p style={{margin:0,fontWeight:500,fontSize:15,color:"#333"}}>{r.name}</p>
+                <span style={{fontSize:11,padding:"2px 8px",borderRadius:20,background:"rgba(255,255,255,0.7)",color:"#666",border:"1px solid rgba(0,0,0,0.08)"}}>{r.tag}</span>
+              </div>
+              <p style={{margin:0,fontSize:13,color:"#666",lineHeight:1.5}}>{r.desc}</p>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:4}}>
+            {r.call && (
+              <a href={`tel:${r.call.replace(/\D/g,"")}`}
+                style={{display:"flex",alignItems:"center",gap:5,background:"rgba(255,255,255,0.8)",border:"1px solid rgba(0,0,0,0.1)",borderRadius:20,padding:"6px 14px",fontSize:13,color:"#333",textDecoration:"none",fontWeight:500}}>
+                📞 {r.call}
+              </a>
+            )}
+            {r.text && (
+              <div style={{display:"flex",alignItems:"center",gap:5,background:"rgba(255,255,255,0.6)",border:"1px solid rgba(0,0,0,0.08)",borderRadius:20,padding:"6px 14px",fontSize:13,color:"#555"}}>
+                💬 {r.text}
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+      <p style={{fontSize:12,color:"#ccc",textAlign:"center",marginTop:12,lineHeight:1.6}}>
+        You deserve support. Reaching out is a sign of strength. 💙
+      </p>
+    </div>
+  );
 
-    <button type="submit" class="btn-small">Send Message</button>
-  </form>
-</section>
+  // ── HOME ──
+  return (
+    <div style={s.page}>
+      <div style={s.header}>
+        <div>
+          <h1 style={s.appTitle}>Bloom</h1>
+          <p style={{margin:0,fontSize:13,color:"#aaa"}}>hi, {username} 👋</p>
+        </div>
+        <div style={s.streakBadge}>
+          <span style={{fontSize:20}}>🔥</span>
+          <div>
+            <p style={{margin:0,fontWeight:500,fontSize:18,lineHeight:1}}>{streak}</p>
+            <p style={{margin:0,fontSize:11,color:"#aaa"}}>day streak</p>
+          </div>
+        </div>
+      </div>
 
-</body>
-</html>
+      <div style={s.affirmCard}>
+        <p style={s.promptLabel}>today's affirmation</p>
+        <p style={{margin:0,fontSize:15,color:"#4a7c59",lineHeight:1.6,fontStyle:"italic"}}>{affirmation}</p>
+      </div>
+
+      {todayMood && (
+        <div style={{display:"flex",alignItems:"center",gap:10,background:todayMood.color,borderRadius:12,padding:"10px 14px",marginBottom:14}}>
+          <span style={{fontSize:20}}>{todayMood.emoji}</span>
+          <span style={{fontSize:13,color:"#555"}}>You're feeling {todayMood.label.toLowerCase()} today</span>
+        </div>
+      )}
+
+      <div style={s.promptBox}>
+        <p style={s.promptLabel}>today's prompt</p>
+        <p style={{fontSize:14,color:"#666",lineHeight:1.6,margin:0}}>"{prompt}"</p>
+      </div>
+
+      <button onClick={() => { setSelectedMood(todayMood); setWriting(""); setShareMode("private"); setPage("write"); }}
+        style={s.primaryBtn}>
+        {submitted ? "✏️  Edit today's entry" : "✍️  Write today's entry"}
+      </button>
+
+      <div style={s.navGrid}>
+        {[
+          { label:"My entries", icon:"📖", pg:"entries" },
+          { label:"Mood calendar", icon:"📅", pg:"calendar" },
+          { label:"Community", icon:"🌍", pg:"community" },
+          { label:"Get support", icon:"💙", pg:"resources" },
+        ].map(n => (
+          <button key={n.pg} style={s.navCard} onClick={() => setPage(n.pg)}>
+            <span style={{fontSize:24}}>{n.icon}</span>
+            <span style={{fontSize:12,color:"#888",textAlign:"center"}}>{n.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {streak > 0 && (
+        <p style={{textAlign:"center",fontSize:13,color:"#aaa",fontStyle:"italic",margin:0}}>
+          {streak===1 ? "Great start! You showed up today. 🌱" :
+           streak<5 ? `${streak} days in a row — you're building something beautiful. 🌿` :
+           streak<10 ? `${streak} days! Look at you go. 🌸` :
+           `${streak} days strong. You should be so proud. 🌺`}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function MoodChart({ entries }) {
+  const sorted = [...entries].sort((a,b) => a.dateKey.localeCompare(b.dateKey)).slice(-14);
+  if (sorted.length < 2) return null;
+  const W=300, H=80;
+  const pts = sorted.map((e,i) => [
+    (i/(sorted.length-1))*(W-20)+10,
+    H - ((e.moodValue-1)/4)*(H-10) - 5,
+    e
+  ]);
+  const path = pts.map((p,i) => `${i===0?"M":"L"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+  return (
+    <svg viewBox={`0 0 ${W} ${H+20}`} style={{width:"100%",height:"auto"}}>
+      {[1,2,3,4,5].map(v => {
+        const y = H-((v-1)/4)*(H-10)-5;
+        return <line key={v} x1={0} y1={y} x2={W} y2={y} stroke="#f0ede6" strokeWidth={1}/>;
+      })}
+      <path d={path} fill="none" stroke="#a8c5a0" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"/>
+      {pts.map(([x,y,e],i) => (
+        <g key={i}>
+          <circle cx={x} cy={y} r={5} fill={e.moodColor} stroke="#fff" strokeWidth={1.5}/>
+          <text x={x} y={H+16} textAnchor="middle" fontSize={9} fill="#bbb">{e.moodEmoji}</text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+const s = {
+  page: { maxWidth:480,margin:"0 auto",padding:"20px 16px 48px",fontFamily:"system-ui,sans-serif",color:"#333" },
+  header: { display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20 },
+  appTitle: { margin:0,fontSize:28,fontWeight:600,color:"#4a7c59",letterSpacing:"-0.5px" },
+  streakBadge: { display:"flex",alignItems:"center",gap:8,background:"#fdf8f0",border:"1.5px solid #f5e6c8",borderRadius:14,padding:"8px 14px" },
+  affirmCard: { background:"#f4f9f4",border:"1.5px solid #d4e8d0",borderRadius:14,padding:"14px 16px",marginBottom:14 },
+  promptBox: { background:"#fafaf8",border:"1.5px solid #ede9e0",borderRadius:14,padding:"14px 16px",marginBottom:18 },
+  promptLabel: { margin:"0 0 4px",fontSize:11,color:"#bbb",textTransform:"uppercase",letterSpacing:"0.8px" },
+  primaryBtn: { width:"100%",padding:"14px",background:"#4a7c59",color:"#fff",border:"none",borderRadius:14,fontSize:15,fontWeight:500,cursor:"pointer",marginBottom:18 },
+  navGrid: { display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:18 },
+  navCard: { display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"16px 8px",background:"#fafaf8",border:"1.5px solid #ede9e0",borderRadius:14,cursor:"pointer" },
+  back: { background:"none",border:"none",color:"#aaa",cursor:"pointer",fontSize:14,padding:"0 0 16px",display:"flex",alignItems:"center",gap:4 },
+  sectionTitle: { fontSize:20,fontWeight:600,margin:"0 0 16px",color:"#333" },
+  label: { fontSize:13,color:"#888",marginBottom:8,marginTop:14 },
+  moodRow: { display:"flex",gap:8,marginBottom:4 },
+  moodBtn: { flex:1,display:"flex",flexDirection:"column",alignItems:"center",padding:"10px 4px",borderRadius:12,cursor:"pointer",gap:2 },
+  textarea: { width:"100%",border:"1.5px solid #ede9e0",borderRadius:14,padding:"12px 14px",fontSize:15,fontFamily:"system-ui,sans-serif",color:"#444",resize:"none",outline:"none",boxSizing:"border-box",lineHeight:1.7,background:"#fafaf8" },
+  promptBox2: { background:"#faf6ff",border:"1.5px solid #e4d9f0",borderRadius:14,padding:"14px 16px",marginBottom:4 },
+  promptBox: { background:"#faf6ff",border:"1.5px solid #e4d9f0",borderRadius:14,padding:"14px 16px",marginBottom:16 },
+  shareOptions: { display:"flex",flexDirection:"column",gap:8 },
+  shareBtn: { display:"flex",alignItems:"center",gap:12,padding:"12px 14px",borderRadius:12,cursor:"pointer",textAlign:"left" },
+  card: { background:"#fafaf8",border:"1.5px solid #ede9e0",borderRadius:14,padding:"16px" },
+  entryRow: { width:"100%",display:"flex",alignItems:"center",gap:12,padding:"12px 14px",background:"#fafaf8",border:"1.5px solid #ede9e0",borderRadius:12,marginBottom:8,cursor:"pointer",textAlign:"left" },
+  badge: { fontSize:11,padding:"3px 8px",borderRadius:20,whiteSpace:"nowrap" },
+  communityCard: { background:"#fafaf8",border:"1.5px solid #ede9e0",borderRadius:14,padding:"16px",marginBottom:12 },
+  calNav: { display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12 },
+  calNavBtn: { background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#aaa",padding:"4px 10px" },
+  calGrid: { display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4 },
+  calHeader: { textAlign:"center",fontSize:11,color:"#bbb",padding:"4px 0",fontWeight:500 },
+  calCell: { aspectRatio:"1",borderRadius:8,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1,padding:2 },
+  input: { width:"100%",border:"1.5px solid #ede9e0",borderRadius:12,padding:"12px 14px",fontSize:15,fontFamily:"system-ui,sans-serif",color:"#444",outline:"none",boxSizing:"border-box",background:"#fafaf8" },
+};
